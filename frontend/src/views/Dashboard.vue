@@ -2,10 +2,10 @@
   <div class="dashboard">
     <!-- Header -->
     <header class="dashboard-header">
-      <h1>台灣地區熱力圖可視化系統</h1>
+      <h1>Data Visualization HeatMap</h1>
       <div class="header-info">
         <span v-if="statistics">
-          數據點: {{ statistics.count }} |
+          資料點: {{ statistics.count }} |
           範圍: {{ statistics.minWeight.toFixed(1) }} - {{ statistics.maxWeight.toFixed(1) }}
         </span>
       </div>
@@ -46,6 +46,14 @@
           />
         </div>
 
+        <!-- Day Type Selection -->
+        <div class="control-group daytype-group">
+          <DayTypeSelector
+            v-model="selectedDayType"
+            @change="handleDayTypeChange"
+          />
+        </div>
+
         <!-- Metric Selection -->
         <div class="control-group metric-group">
           <MetricSelector
@@ -55,19 +63,11 @@
           />
         </div>
 
-        <!-- Day Type Selection -->
-        <div class="control-group daytype-group">
-          <DayTypeSelector
-            v-model="selectedDayType"
-            @change="handleDayTypeChange"
-          />
-        </div>
-
         <!-- Stats display -->
         <div v-if="statistics" class="stats-card">
-          <h3>數據統計</h3>
+          <h3>資料統計</h3>
           <div class="stat-row">
-            <span>數據點數:</span>
+            <span>資料點數:</span>
             <span class="stat-value">{{ statistics.count }}</span>
           </div>
           <div class="stat-row">
@@ -109,24 +109,23 @@
           </div>
         </div>
 
-        <!-- Loading state -->
-        <div v-if="loading" class="loading-overlay">
-          <div class="spinner"></div>
-          <p>載入中...</p>
+        <!-- Loading and Error Overlay -->
+        <div v-show="loading || error" class="overlay-container">
+            <div v-if="loading" class="loading-content">
+              <div class="spinner"></div>
+              <p>載入中...</p>
+            </div>
+            <div v-else-if="error" class="error-content">
+              <p>{{ error }}</p>
+              <button @click="initialize" class="btn btn-primary">重試</button>
+            </div>
         </div>
 
-        <!-- Error state -->
-        <div v-else-if="error" class="error-message">
-          <p>{{ error }}</p>
-          <button @click="initialize" class="btn btn-primary">重試</button>
-        </div>
-
-        <!-- Map -->
+        <!-- Map (always rendered) -->
         <HeatmapMap
-          v-else
           :data-points="dataPoints"
-          :blur="15"
-          :radius="8"
+          :blur="45"
+          :radius="30"
           :min-weight="statistics?.minWeight || 0"
           :max-weight="statistics?.maxWeight || 100"
           @map-ready="onMapReady"
@@ -375,8 +374,22 @@ onMounted(() => {
   font-size: 1rem;
 }
 
-.loading-overlay {
-  flex: 1;
+.overlay-container {
+  position: absolute;
+  top: 57px; /* Height of .section-header */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  backdrop-filter: blur(2px);
+}
+
+.loading-content, .error-content {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -384,13 +397,7 @@ onMounted(() => {
   gap: 16px;
 }
 
-.error-message {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
+.error-content {
   color: var(--error-color);
 }
 

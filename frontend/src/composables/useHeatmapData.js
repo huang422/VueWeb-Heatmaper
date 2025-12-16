@@ -47,7 +47,7 @@ export function useHeatmapData() {
   })
 
   const availableDayTypes = computed(() => {
-    return metadata.value?.day_types || ['平日', '假日']
+    return metadata.value?.day_types || []
   })
 
   // Methods
@@ -109,6 +109,23 @@ export function useHeatmapData() {
   // Initialize
   async function initialize() {
     await fetchMetadata()
+    
+    // Set initial filters based on available metadata
+    if (metadata.value) {
+      if (metadata.value.months?.length > 0) {
+        selectedMonth.value = metadata.value.months[0]
+      }
+      if (metadata.value.hours?.length > 0) {
+        selectedHour.value = metadata.value.hours[0]
+      }
+      if (metadata.value.metrics?.length > 0) {
+        selectedMetric.value = metadata.value.metrics[0].key
+      }
+      if (metadata.value.day_types?.length > 0) {
+        selectedDayType.value = metadata.value.day_types[0]
+      }
+    }
+    
     await fetchHeatmapData()
   }
 

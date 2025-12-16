@@ -22,8 +22,12 @@ FALSE_EASTING = 250000  # False easting (meters)
 E2 = 2 * F - F * F  # Eccentricity squared
 
 # Grid parameters
-GRID_SW_LAT_OFFSET = -32871.4054  # Southwest corner latitude offset (meters)
-GRID_SW_LNG_OFFSET = 2422126.0017  # Southwest corner longitude offset (meters)
+# NOTE: The naming convention from the original data is confusing:
+# - In the original notebook, gx is used to calculate TM2 Y (northing/longitude direction)
+# - In the original notebook, gy is used to calculate TM2 X (easting/latitude direction)
+# Following the original implementation exactly:
+GRID_SW_LAT_OFFSET = -32871.4054  # Used with gy to calculate TM2 X coordinate
+GRID_SW_LNG_OFFSET = 2422126.0017  # Used with gx to calculate TM2 Y coordinate
 GRID_CELL_SIZE = 50  # Grid cell size (meters)
 
 
@@ -119,13 +123,14 @@ def gxgy_to_latlon(gx: int, gy: int) -> Tuple[float, float]:
         Tuple of (latitude, longitude) in decimal degrees
 
     Example:
-        >>> lat, lon = gxgy_to_latlon(7165, 7152)
+        >>> lat, lon = gxgy_to_latlon(7027, 6850)
         >>> print(f"Lat: {lat:.6f}, Lon: {lon:.6f}")
-        Lat: 25.033311, Lon: 121.543653
+        Lat: 25.068552, Lon: 121.591302
     """
     # Calculate TM2 coordinates for grid center
-    tm2_x = GRID_SW_LAT_OFFSET + (gx + 0.5) * GRID_CELL_SIZE
-    tm2_y = GRID_SW_LNG_OFFSET + (gy + 0.5) * GRID_CELL_SIZE
+    # Following original notebook: gx → TM2 Y (lng direction), gy → TM2 X (lat direction)
+    tm2_x = GRID_SW_LAT_OFFSET + (gy + 0.5) * GRID_CELL_SIZE
+    tm2_y = GRID_SW_LNG_OFFSET + (gx + 0.5) * GRID_CELL_SIZE
 
     return _tm2_to_latlon_jit(tm2_x, tm2_y)
 
@@ -144,9 +149,9 @@ def batch_gxgy_to_latlon(gx_array: np.ndarray, gy_array: np.ndarray) -> Tuple[np
         Tuple of (latitude_array, longitude_array) as NumPy arrays
     """
     # Calculate TM2 coordinates for grid centers
-    # gx corresponds to X (easting/longitude), gy corresponds to Y (northing/latitude)
-    tm2_x_array = GRID_SW_LNG_OFFSET + (gx_array + 0.5) * GRID_CELL_SIZE
-    tm2_y_array = GRID_SW_LAT_OFFSET + (gy_array + 0.5) * GRID_CELL_SIZE
+    # Following original notebook: gx → TM2 Y (lng direction), gy → TM2 X (lat direction)
+    tm2_x_array = GRID_SW_LAT_OFFSET + (gy_array + 0.5) * GRID_CELL_SIZE
+    tm2_y_array = GRID_SW_LNG_OFFSET + (gx_array + 0.5) * GRID_CELL_SIZE
 
     # Convert using JIT-compiled function
     results = np.array([

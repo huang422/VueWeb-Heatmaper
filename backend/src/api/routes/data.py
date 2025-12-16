@@ -7,7 +7,6 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 
 from ...services.data_loader import get_cache
-from ...utils.config import VALID_MONTHS, VALID_METRICS
 from ..models.response import (
     HeatmapResponse,
     HeatmapDataPoint,
@@ -33,32 +32,56 @@ async def get_heatmap_data(
     Returns geographic coordinates (lat/lng) and weight values for the selected
     month, hour, metric, and day_type combination.
 
-    - **month**: Month identifier in YYYYMM format (202412, 202502, 202505, 202508)
+    - **month**: Month identifier in YYYYMM format
     - **hour**: Hour of day (0-23, 24-hour format)
     - **metric**: User duration metric to visualize
     - **day_type**: Day type (平日 or 假日)
     """
-    # Validate inputs
-    if month not in VALID_MONTHS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid month: must be one of {VALID_MONTHS}"
-        )
-
-    if metric not in VALID_METRICS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid metric: must be one of {VALID_METRICS}"
-        )
-
     try:
         cache = get_cache()
+        
+        # Get available options from cache for validation
+        metadata = cache.get_metadata()
+        available_months = metadata['months']
+        available_hours = metadata['hours']
+        available_day_types = metadata['day_types']
+        available_metrics = [m['key'] for m in metadata['metrics']]
+
+        # Validate inputs against live data
+        if month not in available_months:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid month: {month}. Available: {available_months}"
+            )
+        if hour not in available_hours:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid hour: {hour}. Available: {available_hours}"
+            )
+        if metric not in available_metrics:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid metric: {metric}. Available: {available_metrics}"
+            )
+        if day_type not in available_day_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid day_type: {day_type}. Available: {available_day_types}"
+            )
+
         data = cache.get_heatmap_data(month, hour, metric, day_type)
 
         if not data:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No data available for month={month}, hour={hour}"
+            # Use 200 OK with empty data list instead of 404
+            # A lack of data for a valid time period is not a client error
+            return HeatmapResponse(
+                month=month,
+                hour=hour,
+                metric=metric,
+                count=0,
+                min_weight=0,
+                max_weight=0,
+                data=[]
             )
 
         # Calculate min/max weights
@@ -79,9 +102,8 @@ async def get_heatmap_data(
             data=data_points
         )
 
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        # Catch-all for unexpected errors, e.g., cache not initialized
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 

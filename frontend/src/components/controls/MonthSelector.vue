@@ -10,15 +10,12 @@
         :aria-label="`選擇${month.label}`"
       >
         <span class="month-label">{{ month.label }}</span>
-        <span class="month-sublabel">{{ month.sublabel }}</span>
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-
 const props = defineProps({
   modelValue: {
     type: Number,
@@ -26,12 +23,7 @@ const props = defineProps({
   },
   availableMonths: {
     type: Array,
-    default: () => [
-      { value: 202412, label: '2024年12月', sublabel: '12月' },
-      { value: 202502, label: '2025年2月', sublabel: '2月' },
-      { value: 202505, label: '2025年5月', sublabel: '5月' },
-      { value: 202508, label: '2025年8月', sublabel: '8月' }
-    ]
+    required: true
   }
 })
 
@@ -103,14 +95,7 @@ function selectMonth(month) {
   line-height: 1.2;
 }
 
-.month-sublabel {
-  font-size: 0.75rem;
-  opacity: 0.8;
-  margin-top: 0.25rem;
-}
-
-.month-button.active .month-label,
-.month-button.active .month-sublabel {
+.month-button.active .month-label{
   color: white;
 }
 
@@ -146,10 +131,6 @@ function selectMonth(month) {
     gap: 0.5rem;
     padding: 0.75rem 1rem;
     min-height: auto;
-  }
-
-  .month-sublabel {
-    display: none;
   }
 }
 </style>

@@ -17,8 +17,6 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-
 const props = defineProps({
   modelValue: {
     type: String,
@@ -26,12 +24,7 @@ const props = defineProps({
   },
   availableMetrics: {
     type: Array,
-    default: () => [
-      { value: 'avg_total_users', label: '全部停留人數', icon: '👥' },
-      { value: 'avg_users_under_10min', label: '停留10分鐘以下', icon: '⚡' },
-      { value: 'avg_users_10_30min', label: '停留10-30分鐘', icon: '⏱️' },
-      { value: 'avg_users_above_30min', label: '停留30分鐘以上', icon: '🕐' }
-    ]
+    required: true
   }
 })
 

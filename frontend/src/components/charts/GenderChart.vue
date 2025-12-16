@@ -85,7 +85,7 @@ const chartOption = computed(() => {
         return [point[0], point[1] + 20]
       },
       formatter: (params) => {
-        return `${params.name}: ${params.value.toFixed(2)} (${params.percent.toFixed(2)}%)`
+        return `${params.name}: ${params.percent.toFixed(2)}%`
       }
     },
     legend: {

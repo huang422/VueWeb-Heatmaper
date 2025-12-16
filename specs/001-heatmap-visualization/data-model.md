@@ -26,7 +26,7 @@ Represents user activity aggregated at a specific grid location (50m × 50m cell
 | **latitude** | Float | WGS84 latitude (derived from gx/gy) | 21.9-25.3° (Taiwan bounds) | *(computed)* |
 | **longitude** | Float | WGS84 longitude (derived from gx/gy) | 118.0-122.1° (Taiwan bounds) | *(computed)* |
 | **hour** | Integer | Hour of day (24-hour format) | 0-23 | hour |
-| **day_type** | String | Weekday/Weekend classification | "假日" (holiday/weekend), "平日" (weekday) | terry_taiginyuan2.day_type |
+| **day_type** | String | Weekday/Weekend classification | "假日" (holiday/weekend), "平日" (weekday) | day_type |
 | **avg_total_users** | Float | Average total users at this location | ≥0 | avg_total_users |
 | **avg_users_under_10min** | Float | Average users staying <10 minutes | ≥0 | avg_users_under_10min |
 | **avg_users_10_30min** | Float | Average users staying 10-30 minutes | ≥0 | avg_users_10_30min |

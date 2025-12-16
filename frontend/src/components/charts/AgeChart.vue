@@ -141,7 +141,7 @@ const chartOption = computed(() => {
         label: {
           show: false,
           position: 'top',
-          formatter: '{c}%',
+          formatter: (params) => `${params.value.toFixed(2)}%`,
           fontSize: 10,
           color: '#374151'
         },

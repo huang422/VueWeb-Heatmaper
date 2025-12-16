@@ -1,4 +1,4 @@
-# Interactive Geographic Heatmap Visualization System
+# Data Visualization HeatMap
 
 An interactive web application that visualizes geographic distribution of user data through heatmaps on a Taiwan map. The system displays time-based heatmap visualizations with automatic hourly cycling, filtering by month and duration metrics, and demographic breakdowns.
 

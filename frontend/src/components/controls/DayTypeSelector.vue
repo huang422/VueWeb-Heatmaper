@@ -1,6 +1,6 @@
 <template>
   <div class="daytype-selector">
-    <label class="selector-label">日期類型</label>
+    <label class="selector-label">平日/假日</label>
     <div class="selector-buttons">
       <button
         :class="['daytype-button', { active: modelValue === '平日' }]"
@@ -26,8 +26,7 @@
 const props = defineProps({
   modelValue: {
     type: String,
-    required: true,
-    default: '平日'
+    required: true
   }
 })
 

@@ -1,6 +1,6 @@
 """
-Build Script for Windows Executable
-Automates PyInstaller execution to create standalone .exe
+Build Script for Windows Executable - Optimized for Minimal Size
+Creates a lightweight standalone .exe with only essential runtime files
 """
 
 import os
@@ -12,7 +12,6 @@ from pathlib import Path
 # Project paths
 BACKEND_DIR = Path(__file__).parent
 PROJECT_ROOT = BACKEND_DIR.parent
-FRONTEND_DIR = PROJECT_ROOT / 'frontend'
 DATA_DIR = PROJECT_ROOT / 'data'
 DIST_DIR = BACKEND_DIR / 'dist'
 BUILD_DIR = BACKEND_DIR / 'build'
@@ -28,13 +27,6 @@ def check_prerequisites():
     except ImportError:
         print("❌ PyInstaller not found. Install with: pip install pyinstaller")
         return False
-
-    # Check if frontend is built
-    frontend_dist = FRONTEND_DIR / 'dist'
-    if not frontend_dist.exists() or not list(frontend_dist.glob('*')):
-        print("❌ Frontend not built. Run: cd frontend && npm run build")
-        return False
-    print(f"✓ Frontend dist found at {frontend_dist}")
 
     # Check if data file exists
     data_file = DATA_DIR / 'data.csv'
@@ -56,21 +48,19 @@ def clean_build_dirs():
 
 def build_executable():
     """Run PyInstaller to build the executable"""
-    print("\n🔨 Building executable with PyInstaller...")
+    print("\n🔨 Building lightweight executable with PyInstaller...")
 
-    # PyInstaller arguments
+    # PyInstaller arguments - optimized for minimal size
     args = [
         'pyinstaller',
         '--name=StoreHeatmap',
         '--onefile',  # Single executable file
-        '--windowed',  # No console window (GUI app)
-        '--icon=NONE',  # Add icon path if you have one
+        '--console',  # Keep console for debugging (change to --windowed for production)
 
-        # Add data files
-        f'--add-data={FRONTEND_DIR / "dist"}{os.pathsep}frontend/dist',
+        # Add only essential data files
         f'--add-data={DATA_DIR / "data.csv"}{os.pathsep}data',
 
-        # Hidden imports (modules not automatically detected)
+        # Hidden imports (only essential modules)
         '--hidden-import=uvicorn.logging',
         '--hidden-import=uvicorn.loops',
         '--hidden-import=uvicorn.loops.auto',
@@ -81,15 +71,57 @@ def build_executable():
         '--hidden-import=uvicorn.protocols.websockets.auto',
         '--hidden-import=uvicorn.lifespan',
         '--hidden-import=uvicorn.lifespan.on',
+        '--hidden-import=numba',
+        '--hidden-import=numba.core',
+        '--hidden-import=numba.core.typing',
 
-        # Exclude unnecessary modules to reduce size
+        # Exclude ALL unnecessary modules to minimize size
         '--exclude-module=tkinter',
         '--exclude-module=matplotlib',
         '--exclude-module=IPython',
         '--exclude-module=notebook',
+        '--exclude-module=jupyter',
+        '--exclude-module=pytest',
+        '--exclude-module=sphinx',
+        '--exclude-module=setuptools',
+        '--exclude-module=pip',
+        '--exclude-module=wheel',
+        '--exclude-module=PIL',
+        '--exclude-module=PIL.Image',
+        '--exclude-module=PyQt5',
+        '--exclude-module=PyQt6',
+        '--exclude-module=PySide2',
+        '--exclude-module=PySide6',
+        '--exclude-module=wx',
 
-        # Enable UPX compression if available
-        '--upx-dir=.',  # UPX will be used if found in PATH
+        # Exclude testing modules
+        '--exclude-module=unittest',
+        '--exclude-module=test',
+        '--exclude-module=tests',
+        '--exclude-module=doctest',
+
+        # Exclude documentation modules
+        '--exclude-module=pydoc',
+        '--exclude-module=pydoc_data',
+
+        # Strip debug symbols and optimize
+        '--strip',  # Strip symbols from binary (Linux/Mac)
+        '--noupx',  # Disable UPX compression (can cause issues)
+
+        # Optimize imports
+        '--optimize=2',  # Highest Python optimization level
+
+        # Exclude unnecessary binary files
+        '--exclude-module=_tkinter',
+        '--exclude-module=curses',
+        '--exclude-module=readline',
+
+        # Clean build
+        '--clean',
+        '--noconfirm',
+
+        # Logging
+        '--log-level=WARN',
 
         # Entry point
         str(BACKEND_DIR / 'src' / 'main.py')
@@ -104,6 +136,21 @@ def build_executable():
         print(f"\n❌ Build failed with error code {e.returncode}")
         return False
 
+def optimize_build():
+    """Post-build optimization to reduce size further"""
+    print("\n⚡ Optimizing build output...")
+
+    # Remove spec file if not needed
+    spec_file = BACKEND_DIR / 'StoreHeatmap.spec'
+    if spec_file.exists():
+        spec_file.unlink()
+        print("✓ Removed .spec file")
+
+    # Remove build directory (not needed after build)
+    if BUILD_DIR.exists():
+        shutil.rmtree(BUILD_DIR)
+        print("✓ Removed build directory")
+
 def verify_build():
     """Verify the built executable exists"""
     print("\n🔍 Verifying build output...")
@@ -113,6 +160,13 @@ def verify_build():
         size_mb = exe_path.stat().st_size / (1024 * 1024)
         print(f"✓ Executable created: {exe_path}")
         print(f"✓ Size: {size_mb:.2f} MB")
+
+        # Size warnings
+        if size_mb > 100:
+            print("⚠️  Warning: Executable is large. Consider reviewing dependencies.")
+        elif size_mb < 50:
+            print("✅ Excellent: Executable is lightweight!")
+
         return True
     else:
         print(f"❌ Executable not found at {exe_path}")
@@ -124,20 +178,30 @@ def print_instructions():
     print("\n" + "=" * 60)
     print("The executable is ready to use:")
     print(f"  Location: {DIST_DIR / 'StoreHeatmap.exe'}")
+    print("\nWhat's included:")
+    print("  ✓ Backend API server (FastAPI + Uvicorn)")
+    print("  ✓ Data processing (Pandas + NumPy + Numba)")
+    print("  ✓ Coordinate conversion (TWD97 TM2)")
+    print("  ✓ Data file (data.csv)")
+    print("\nWhat's excluded (to minimize size):")
+    print("  ✗ Frontend files (serve separately or use CDN)")
+    print("  ✗ Documentation and README files")
+    print("  ✗ Test files and notebooks")
+    print("  ✗ Development dependencies")
     print("\nTo run the application:")
     print("  1. Double-click StoreHeatmap.exe")
-    print("  2. Browser will open automatically")
-    print("  3. Navigate to http://localhost:8000")
+    print("  2. API server starts on http://localhost:8001")
+    print("  3. Use frontend separately or via browser")
     print("\nTo distribute:")
     print("  - Copy StoreHeatmap.exe to target machine")
-    print("  - No installation required")
-    print("  - No Python or dependencies needed")
+    print("  - Ensure data.csv is in the same directory")
+    print("  - No installation or dependencies required")
     print("=" * 60)
 
 def main():
     """Main build process"""
     print("=" * 60)
-    print("Store Heatmap - Windows Executable Builder")
+    print("Store Heatmap - Lightweight Windows Executable Builder")
     print("=" * 60)
 
     # Step 1: Check prerequisites
@@ -153,12 +217,15 @@ def main():
         print("\n❌ Build process failed.")
         return 1
 
-    # Step 4: Verify build
+    # Step 4: Optimize build
+    optimize_build()
+
+    # Step 5: Verify build
     if not verify_build():
         print("\n❌ Build verification failed.")
         return 1
 
-    # Step 5: Print instructions
+    # Step 6: Print instructions
     print_instructions()
 
     return 0

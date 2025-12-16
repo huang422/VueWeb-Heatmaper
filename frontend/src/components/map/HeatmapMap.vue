@@ -13,11 +13,12 @@
 import { ref, onMounted, watch, nextTick } from 'vue'
 import Map from 'ol/Map'
 import View from 'ol/View'
-import { Tile as TileLayer, Heatmap as HeatmapLayer } from 'ol/layer'
+import { Tile as TileLayer, Heatmap as HeatmapLayer, Vector as VectorLayer } from 'ol/layer'
 import { OSM, Vector as VectorSource } from 'ol/source'
 import Feature from 'ol/Feature'
 import Point from 'ol/geom/Point'
 import { fromLonLat } from 'ol/proj'
+import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style'
 import MapTooltip from './MapTooltip.vue'
 
 // Register proj4 for TWD97 support
@@ -53,6 +54,7 @@ const mapContainer = ref(null)
 const map = ref(null)
 const heatmapLayer = ref(null)
 const vectorSource = ref(null)
+const isInitialLoad = ref(true) // Flag for initial data load
 
 // Tooltip state
 const tooltipVisible = ref(false)
@@ -61,7 +63,7 @@ const tooltipData = ref(null)
 
 // Initialize map
 function initMap() {
-  // Create vector source for heatmap points
+  // Create vector source for heatmap and points
   vectorSource.value = new VectorSource()
 
   // Create heatmap layer
@@ -81,6 +83,18 @@ function initMap() {
     ]
   })
 
+  // Create a layer for the actual points
+  const pointsLayer = new VectorLayer({
+    source: vectorSource.value,
+    style: new Style({
+      image: new CircleStyle({
+        radius: 4,
+        fill: new Fill({ color: 'rgba(255, 255, 255, 0.6)' }),
+        stroke: new Stroke({ color: '#d10000', width: 2 })
+      })
+    })
+  })
+
   // Create map
   map.value = new Map({
     target: mapContainer.value,
@@ -88,10 +102,11 @@ function initMap() {
       new TileLayer({
         source: new OSM()
       }),
-      heatmapLayer.value
+      heatmapLayer.value,
+      pointsLayer // Add points layer on top
     ],
     view: new View({
-      center: fromLonLat([121.0, 23.5]), // Center of Taiwan
+      center: fromLonLat([121.5, 23.9]), // Center of Taiwan
       zoom: 7,
       minZoom: 6,
       maxZoom: 18
@@ -142,15 +157,15 @@ function updateHeatmap() {
   // Add features to source
   vectorSource.value.addFeatures(features)
 
-  // Don't auto-fit on update to maintain zoom level
-  // Only fit on initial load if map view is at default position
-  if (features.length > 0 && !map.value.getView().getZoom()) {
+  // Auto-fit the view on the initial data load
+  if (features.length > 0 && isInitialLoad.value) {
     const extent = vectorSource.value.getExtent()
     map.value.getView().fit(extent, {
-      padding: [50, 50, 50, 50],
-      maxZoom: 12,
-      duration: 0
+      padding: [80, 80, 80, 80], // Add some padding
+      maxZoom: 16, // Zoom in a bit closer
+      duration: 1000 // Animate the zoom
     })
+    isInitialLoad.value = false // Ensure this only runs once
   }
 }
 

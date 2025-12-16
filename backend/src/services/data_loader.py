@@ -83,9 +83,9 @@ class DataCache:
         }
 
         self.df = pd.read_csv(csv_path, dtype=dtype_mapping)
-
+        
         # Validate required columns
-        required_cols = ['month', 'gx', 'gy', 'hour'] + self.metrics
+        required_cols = ['month', 'gx', 'gy', 'hour', 'day_type'] + self.metrics
         missing_cols = [col for col in required_cols if col not in self.df.columns]
         if missing_cols:
             raise ValueError(f"CSV missing required columns: {missing_cols}")
@@ -137,20 +137,7 @@ class DataCache:
 
         Returns:
             List of dictionaries with keys: gx, gy, lat, lng, weight
-
-        Raises:
-            ValueError: If parameters are invalid
         """
-        # Validate inputs
-        if month not in self.available_months:
-            raise ValueError(f"Invalid month: {month}. Available: {self.available_months}")
-        if hour not in range(24):
-            raise ValueError(f"Invalid hour: {hour}. Must be 0-23")
-        if metric not in self.metrics:
-            raise ValueError(f"Invalid metric: {metric}. Available: {self.metrics}")
-        if day_type not in self.available_day_types:
-            raise ValueError(f"Invalid day_type: {day_type}. Available: {self.available_day_types}")
-
         # O(1) lookup
         filtered_df = self.lookup_dict.get((month, hour, day_type))
         if filtered_df is None or filtered_df.empty:
@@ -190,16 +177,6 @@ class DataCache:
         Returns:
             Dictionary with gender and age distribution percentages
         """
-        # Validate inputs
-        if month not in self.available_months:
-            raise ValueError(f"Invalid month: {month}")
-        if hour not in range(24):
-            raise ValueError(f"Invalid hour: {hour}")
-        if metric not in self.metrics:
-            raise ValueError(f"Invalid metric: {metric}")
-        if day_type not in self.available_day_types:
-            raise ValueError(f"Invalid day_type: {day_type}")
-
         # Get filtered data
         filtered_df = self.lookup_dict.get((month, hour, day_type))
         if filtered_df is None or filtered_df.empty:

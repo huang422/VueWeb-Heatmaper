@@ -67,16 +67,6 @@ CORS_CONFIG = {
     'allow_headers': ["*"],
 }
 
-# Valid values for API parameters
-VALID_MONTHS = [202412, 202502, 202505, 202508]
-VALID_HOURS = list(range(24))
-VALID_METRICS = [
-    "avg_total_users",
-    "avg_users_under_10min",
-    "avg_users_10_30min",
-    "avg_users_over_30min"
-]
-
 # Metric labels (Chinese)
 METRIC_LABELS = {
     "avg_total_users": "全部停留人數",
@@ -120,17 +110,3 @@ def get_data_path() -> Path:
         raise FileNotFoundError(f"Data file not found: {DATA_PATH}")
     return DATA_PATH
 
-
-def validate_month(month: int) -> bool:
-    """Validate month parameter."""
-    return month in VALID_MONTHS
-
-
-def validate_hour(hour: int) -> bool:
-    """Validate hour parameter."""
-    return hour in VALID_HOURS
-
-
-def validate_metric(metric: str) -> bool:
-    """Validate metric parameter."""
-    return metric in VALID_METRICS
