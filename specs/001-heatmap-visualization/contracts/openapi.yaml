@@ -1,0 +1,597 @@
+openapi: 3.0.3
+info:
+  title: Store Heatmap Visualization API
+  description: |
+    REST API for interactive geographic heatmap visualization of user distribution data.
+
+    **Features:**
+    - Query heatmap data by month, hour, and metric
+    - Retrieve demographic statistics
+    - Get system metadata (available months, hours, metrics)
+
+    **Data Source:** data/data.csv with Taiwan grid coordinates (gx/gy) converted to latitude/longitude
+  version: 1.0.0
+  contact:
+    name: Store Heatmap Team
+
+servers:
+  - url: http://127.0.0.1:8000
+    description: Local development server
+  - url: http://localhost:{port}
+    description: Dynamic port (8000-8010)
+    variables:
+      port:
+        default: '8000'
+        description: Automatically selected port
+
+tags:
+  - name: Heatmap
+    description: Heatmap data retrieval operations
+  - name: Demographics
+    description: Demographic statistics operations
+  - name: Metadata
+    description: System metadata and available options
+
+paths:
+  /api/heatmap:
+    get:
+      tags:
+        - Heatmap
+      summary: Get heatmap data for specific time period
+      description: |
+        Retrieves location data points with user counts for visualization on a map.
+        Returns geographic coordinates (lat/lng) and weight values for the selected
+        month, hour, and metric combination.
+      operationId: getHeatmapData
+      parameters:
+        - name: month
+          in: query
+          description: Month identifier in YYYYMM format
+          required: false
+          schema:
+            type: integer
+            enum: [202412, 202502, 202505, 202508]
+            default: 202412
+          example: 202412
+        - name: hour
+          in: query
+          description: Hour of day (0-23, 24-hour format)
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 23
+            default: 0
+          example: 14
+        - name: metric
+          in: query
+          description: User duration metric to visualize
+          required: false
+          schema:
+            type: string
+            enum:
+              - avg_total_users
+              - avg_users_under_10min
+              - avg_users_10_30min
+              - avg_users_over_30min
+            default: avg_total_users
+          example: avg_total_users
+      responses:
+        '200':
+          description: Successful response with heatmap data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeatmapResponse'
+              example:
+                month: 202412
+                hour: 14
+                metric: "avg_total_users"
+                count: 245
+                min_weight: 0.5
+                max_weight: 150.3
+                data:
+                  - gx: 7165
+                    gy: 7152
+                    lat: 25.033311
+                    lng: 121.543653
+                    weight: 20.67
+                  - gx: 7166
+                    gy: 7152
+                    lat: 25.033789
+                    lng: 121.544201
+                    weight: 41.89
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: "Invalid month: must be one of [202412, 202502, 202505, 202508]"
+        '404':
+          description: No data found for specified parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: "No data available for month=202412, hour=25"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/demographics:
+    get:
+      tags:
+        - Demographics
+      summary: Get demographic statistics for specific time period
+      description: |
+        Retrieves aggregated demographic statistics (gender and age distribution)
+        for the selected month and hour. Percentages are weighted by the selected
+        metric to reflect actual user distribution.
+      operationId: getDemographics
+      parameters:
+        - name: month
+          in: query
+          description: Month identifier in YYYYMM format
+          required: false
+          schema:
+            type: integer
+            enum: [202412, 202502, 202505, 202508]
+            default: 202412
+        - name: hour
+          in: query
+          description: Hour of day (0-23)
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 23
+            default: 0
+        - name: metric
+          in: query
+          description: Metric to use for weighting demographic calculations
+          required: false
+          schema:
+            type: string
+            enum:
+              - avg_total_users
+              - avg_users_under_10min
+              - avg_users_10_30min
+              - avg_users_over_30min
+            default: avg_total_users
+      responses:
+        '200':
+          description: Successful response with demographic data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemographicResponse'
+              example:
+                month: 202412
+                hour: 14
+                metric: "avg_total_users"
+                total_users: 5234.5
+                demographics:
+                  gender:
+                    male: 54.2
+                    female: 45.8
+                  age:
+                    under_19: 2.1
+                    age_20_24: 6.8
+                    age_25_29: 9.3
+                    age_30_34: 8.2
+                    age_35_39: 7.5
+                    age_40_44: 8.1
+                    age_45_49: 10.2
+                    age_50_54: 11.4
+                    age_55_59: 12.3
+                    age_60_plus: 24.1
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No data found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/metadata:
+    get:
+      tags:
+        - Metadata
+      summary: Get system metadata
+      description: |
+        Returns available months, hours, metrics, and data statistics.
+        Used by frontend to populate dropdown options and validate selections.
+      operationId: getMetadata
+      responses:
+        '200':
+          description: Successful response with metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetadataResponse'
+              example:
+                months:
+                  - 202412
+                  - 202502
+                  - 202505
+                  - 202508
+                hours: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+                metrics:
+                  - key: "avg_total_users"
+                    label: "全部停留人數"
+                  - key: "avg_users_under_10min"
+                    label: "停留10分鐘以下"
+                  - key: "avg_users_10_30min"
+                    label: "停留10-30分鐘"
+                  - key: "avg_users_over_30min"
+                    label: "停留30分鐘以上"
+                total_locations: 2881
+                data_coverage:
+                  total_data_points: 2881
+                  unique_locations: 547
+                  time_periods: 96
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      tags:
+        - Metadata
+      summary: Health check endpoint
+      description: Returns server health status
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-12-15T10:30:00Z"
+
+components:
+  schemas:
+    HeatmapDataPoint:
+      type: object
+      description: Single location data point for heatmap visualization
+      required:
+        - gx
+        - gy
+        - lat
+        - lng
+        - weight
+      properties:
+        gx:
+          type: integer
+          description: Grid X coordinate (Taiwan TWD97 TM2 system)
+          example: 7165
+        gy:
+          type: integer
+          description: Grid Y coordinate (Taiwan TWD97 TM2 system)
+          example: 7152
+        lat:
+          type: number
+          format: double
+          description: WGS84 latitude in decimal degrees
+          minimum: 21.9
+          maximum: 25.3
+          example: 25.033311
+        lng:
+          type: number
+          format: double
+          description: WGS84 longitude in decimal degrees
+          minimum: 118.0
+          maximum: 122.1
+          example: 121.543653
+        weight:
+          type: number
+          format: float
+          description: User count for selected metric at this location
+          minimum: 0
+          example: 20.67
+
+    HeatmapResponse:
+      type: object
+      description: Response containing heatmap data for a specific time period
+      required:
+        - month
+        - hour
+        - metric
+        - count
+        - data
+      properties:
+        month:
+          type: integer
+          description: Month identifier (YYYYMM)
+          enum: [202412, 202502, 202505, 202508]
+          example: 202412
+        hour:
+          type: integer
+          description: Hour of day (0-23)
+          minimum: 0
+          maximum: 23
+          example: 14
+        metric:
+          type: string
+          description: Selected user duration metric
+          enum: [avg_total_users, avg_users_under_10min, avg_users_10_30min, avg_users_over_30min]
+          example: "avg_total_users"
+        count:
+          type: integer
+          description: Number of location data points returned
+          minimum: 0
+          example: 245
+        min_weight:
+          type: number
+          format: float
+          description: Minimum weight value in dataset
+          example: 0.5
+        max_weight:
+          type: number
+          format: float
+          description: Maximum weight value in dataset
+          example: 150.3
+        data:
+          type: array
+          description: Array of location data points
+          items:
+            $ref: '#/components/schemas/HeatmapDataPoint'
+
+    GenderDistribution:
+      type: object
+      description: Gender distribution percentages
+      required:
+        - male
+        - female
+      properties:
+        male:
+          type: number
+          format: float
+          description: Percentage of male users (男性)
+          minimum: 0
+          maximum: 100
+          example: 54.2
+        female:
+          type: number
+          format: float
+          description: Percentage of female users (女性)
+          minimum: 0
+          maximum: 100
+          example: 45.8
+
+    AgeDistribution:
+      type: object
+      description: Age group distribution percentages
+      required:
+        - under_19
+        - age_20_24
+        - age_25_29
+        - age_30_34
+        - age_35_39
+        - age_40_44
+        - age_45_49
+        - age_50_54
+        - age_55_59
+        - age_60_plus
+      properties:
+        under_19:
+          type: number
+          format: float
+          description: Percentage of users 19歲以下 (under 19)
+          minimum: 0
+          maximum: 100
+          example: 2.1
+        age_20_24:
+          type: number
+          format: float
+          description: Percentage of users 20-24歲
+          minimum: 0
+          maximum: 100
+          example: 6.8
+        age_25_29:
+          type: number
+          format: float
+          description: Percentage of users 25-29歲
+          minimum: 0
+          maximum: 100
+          example: 9.3
+        age_30_34:
+          type: number
+          format: float
+          description: Percentage of users 30-34歲
+          minimum: 0
+          maximum: 100
+          example: 8.2
+        age_35_39:
+          type: number
+          format: float
+          description: Percentage of users 35-39歲
+          minimum: 0
+          maximum: 100
+          example: 7.5
+        age_40_44:
+          type: number
+          format: float
+          description: Percentage of users 40-44歲
+          minimum: 0
+          maximum: 100
+          example: 8.1
+        age_45_49:
+          type: number
+          format: float
+          description: Percentage of users 45-49歲
+          minimum: 0
+          maximum: 100
+          example: 10.2
+        age_50_54:
+          type: number
+          format: float
+          description: Percentage of users 50-54歲
+          minimum: 0
+          maximum: 100
+          example: 11.4
+        age_55_59:
+          type: number
+          format: float
+          description: Percentage of users 55-59歲
+          minimum: 0
+          maximum: 100
+          example: 12.3
+        age_60_plus:
+          type: number
+          format: float
+          description: Percentage of users 60+ (age_other)
+          minimum: 0
+          maximum: 100
+          example: 24.1
+
+    Demographics:
+      type: object
+      description: Complete demographic breakdown
+      required:
+        - gender
+        - age
+      properties:
+        gender:
+          $ref: '#/components/schemas/GenderDistribution'
+        age:
+          $ref: '#/components/schemas/AgeDistribution'
+
+    DemographicResponse:
+      type: object
+      description: Response containing demographic statistics
+      required:
+        - month
+        - hour
+        - metric
+        - total_users
+        - demographics
+      properties:
+        month:
+          type: integer
+          enum: [202412, 202502, 202505, 202508]
+          example: 202412
+        hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+          example: 14
+        metric:
+          type: string
+          enum: [avg_total_users, avg_users_under_10min, avg_users_10_30min, avg_users_over_30min]
+          example: "avg_total_users"
+        total_users:
+          type: number
+          format: float
+          description: Total user count across all locations for this time period
+          example: 5234.5
+        demographics:
+          $ref: '#/components/schemas/Demographics'
+
+    MetricOption:
+      type: object
+      description: Metric option with key and label
+      required:
+        - key
+        - label
+      properties:
+        key:
+          type: string
+          description: Metric identifier
+          example: "avg_total_users"
+        label:
+          type: string
+          description: Human-readable label (Chinese)
+          example: "全部停留人數"
+
+    DataCoverage:
+      type: object
+      description: Data coverage statistics
+      properties:
+        total_data_points:
+          type: integer
+          description: Total number of rows in dataset
+          example: 2881
+        unique_locations:
+          type: integer
+          description: Number of unique (gx, gy) locations
+          example: 547
+        time_periods:
+          type: integer
+          description: Number of unique (month, hour) combinations
+          example: 96
+
+    MetadataResponse:
+      type: object
+      description: System metadata and available options
+      required:
+        - months
+        - hours
+        - metrics
+        - total_locations
+      properties:
+        months:
+          type: array
+          description: Available months
+          items:
+            type: integer
+            enum: [202412, 202502, 202505, 202508]
+          example: [202412, 202502, 202505, 202508]
+        hours:
+          type: array
+          description: Available hours (0-23)
+          items:
+            type: integer
+            minimum: 0
+            maximum: 23
+          example: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+        metrics:
+          type: array
+          description: Available user duration metrics
+          items:
+            $ref: '#/components/schemas/MetricOption'
+        total_locations:
+          type: integer
+          description: Total number of data points in dataset
+          example: 2881
+        data_coverage:
+          $ref: '#/components/schemas/DataCoverage'
+
+    Error:
+      type: object
+      description: Error response
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: "Invalid month: must be one of [202412, 202502, 202505, 202508]"
