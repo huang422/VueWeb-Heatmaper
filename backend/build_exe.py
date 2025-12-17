@@ -1,66 +1,94 @@
 """
-Build Script for Windows Executable - Optimized for Minimal Size
-Creates a lightweight standalone .exe with only essential runtime files
+PyInstaller Build Script - All-in-One Executable
+打包前端 + 後端 + Python 執行環境 = 單一 exe
+客戶完全不需要安裝任何東西
 """
 
 import os
 import sys
-import shutil
 import subprocess
+import shutil
 from pathlib import Path
 
-# Project paths
+# 專案路徑
 BACKEND_DIR = Path(__file__).parent
 PROJECT_ROOT = BACKEND_DIR.parent
 DATA_DIR = PROJECT_ROOT / 'data'
+FRONTEND_DIR = PROJECT_ROOT / 'frontend'
 DIST_DIR = BACKEND_DIR / 'dist'
 BUILD_DIR = BACKEND_DIR / 'build'
 
 def check_prerequisites():
-    """Check if all required files and dependencies are present"""
-    print("🔍 Checking prerequisites...")
+    """檢查前置條件"""
+    print("🔍 檢查前置條件...")
 
-    # Check if PyInstaller is installed
+    # 檢查 PyInstaller
     try:
         import PyInstaller
-        print(f"✓ PyInstaller {PyInstaller.__version__} found")
+        print(f"✓ PyInstaller {PyInstaller.__version__}")
     except ImportError:
-        print("❌ PyInstaller not found. Install with: pip install pyinstaller")
+        print("❌ PyInstaller 未安裝")
+        print("   請執行: pip install pyinstaller")
         return False
 
-    # Check if data file exists
+    # 檢查資料檔案
     data_file = DATA_DIR / 'data.csv'
     if not data_file.exists():
-        print(f"❌ Data file not found at {data_file}")
+        print(f"❌ 資料檔案不存在: {data_file}")
         return False
-    print(f"✓ Data file found: {data_file}")
+    print(f"✓ 資料檔案: {data_file}")
+
+    # 檢查前端已建置
+    frontend_dist = FRONTEND_DIR / 'dist'
+    if not frontend_dist.exists() or not (frontend_dist / 'index.html').exists():
+        print(f"❌ 前端未建置")
+        print(f"   請執行: cd {FRONTEND_DIR} && npm run build")
+        return False
+    print(f"✓ 前端已建置: {frontend_dist}")
 
     return True
 
 def clean_build_dirs():
-    """Remove old build artifacts"""
-    print("\n🧹 Cleaning old build artifacts...")
-
+    """清理舊的建置檔案"""
+    print("\n🧹 清理舊檔案...")
     for dir_path in [DIST_DIR, BUILD_DIR]:
         if dir_path.exists():
             shutil.rmtree(dir_path)
-            print(f"✓ Removed {dir_path}")
+            print(f"  清除: {dir_path}")
 
-def build_executable():
-    """Run PyInstaller to build the executable"""
-    print("\n🔨 Building lightweight executable with PyInstaller...")
+    # 清理舊的 spec 檔案
+    for spec_file in BACKEND_DIR.glob('*.spec'):
+        spec_file.unlink()
+        print(f"  清除: {spec_file}")
 
-    # PyInstaller arguments - optimized for minimal size
+def build_exe():
+    """執行 PyInstaller 打包"""
+    print("\n🔨 開始打包...")
+    print("=" * 60)
+
+    # 使用絕對路徑
+    data_csv = str((DATA_DIR / 'data.csv').absolute())
+    frontend_dist = str((FRONTEND_DIR / 'dist').absolute())
+    run_app_py = str((BACKEND_DIR / 'run_app.py').absolute())
+    src_dir = str((BACKEND_DIR / 'src').absolute())
+
+    # PyInstaller 參數
     args = [
         'pyinstaller',
         '--name=StoreHeatmap',
-        '--onefile',  # Single executable file
-        '--console',  # Keep console for debugging (change to --windowed for production)
+        '--onefile',
+        '--console',
+        '--clean',
+        '--noconfirm',
 
-        # Add only essential data files
-        f'--add-data={DATA_DIR / "data.csv"}{os.pathsep}data',
+        # 加入資料和前端
+        f'--add-data={data_csv}{os.pathsep}data',
+        f'--add-data={frontend_dist}{os.pathsep}frontend/dist',
 
-        # Hidden imports (only essential modules)
+        # 加入整個 src 目錄作為資料
+        f'--add-data={src_dir}{os.pathsep}src',
+
+        # Hidden imports
         '--hidden-import=uvicorn.logging',
         '--hidden-import=uvicorn.loops',
         '--hidden-import=uvicorn.loops.auto',
@@ -71,164 +99,105 @@ def build_executable():
         '--hidden-import=uvicorn.protocols.websockets.auto',
         '--hidden-import=uvicorn.lifespan',
         '--hidden-import=uvicorn.lifespan.on',
-        '--hidden-import=numba',
-        '--hidden-import=numba.core',
-        '--hidden-import=numba.core.typing',
 
-        # Exclude ALL unnecessary modules to minimize size
+        # 排除不需要的模組
         '--exclude-module=tkinter',
         '--exclude-module=matplotlib',
         '--exclude-module=IPython',
-        '--exclude-module=notebook',
         '--exclude-module=jupyter',
         '--exclude-module=pytest',
-        '--exclude-module=sphinx',
-        '--exclude-module=setuptools',
-        '--exclude-module=pip',
-        '--exclude-module=wheel',
-        '--exclude-module=PIL',
-        '--exclude-module=PIL.Image',
-        '--exclude-module=PyQt5',
-        '--exclude-module=PyQt6',
-        '--exclude-module=PySide2',
-        '--exclude-module=PySide6',
-        '--exclude-module=wx',
 
-        # Exclude testing modules
-        '--exclude-module=unittest',
-        '--exclude-module=test',
-        '--exclude-module=tests',
-        '--exclude-module=doctest',
+        # 優化
+        '--noupx',
+        '--optimize=2',
 
-        # Exclude documentation modules
-        '--exclude-module=pydoc',
-        '--exclude-module=pydoc_data',
-
-        # Strip debug symbols and optimize
-        '--strip',  # Strip symbols from binary (Linux/Mac)
-        '--noupx',  # Disable UPX compression (can cause issues)
-
-        # Optimize imports
-        '--optimize=2',  # Highest Python optimization level
-
-        # Exclude unnecessary binary files
-        '--exclude-module=_tkinter',
-        '--exclude-module=curses',
-        '--exclude-module=readline',
-
-        # Clean build
-        '--clean',
-        '--noconfirm',
-
-        # Logging
-        '--log-level=WARN',
-
-        # Entry point
-        str(BACKEND_DIR / 'src' / 'main.py')
+        # 入口點（使用 run_app.py）
+        run_app_py
     ]
 
-    # Run PyInstaller
+    # 執行 PyInstaller
     try:
-        result = subprocess.run(args, check=True, cwd=BACKEND_DIR)
-        print("\n✅ Executable built successfully!")
+        print(f"執行指令: {' '.join(args[:5])}...")
+        result = subprocess.run(args, cwd=BACKEND_DIR, check=True)
+        print("\n✅ 打包成功!")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"\n❌ Build failed with error code {e.returncode}")
+        print(f"\n❌ 打包失敗: {e}")
         return False
 
-def optimize_build():
-    """Post-build optimization to reduce size further"""
-    print("\n⚡ Optimizing build output...")
+def show_summary():
+    """顯示摘要"""
+    exe_file = DIST_DIR / 'StoreHeatmap.exe'
 
-    # Remove spec file if not needed
-    spec_file = BACKEND_DIR / 'StoreHeatmap.spec'
-    if spec_file.exists():
-        spec_file.unlink()
-        print("✓ Removed .spec file")
-
-    # Remove build directory (not needed after build)
-    if BUILD_DIR.exists():
-        shutil.rmtree(BUILD_DIR)
-        print("✓ Removed build directory")
-
-def verify_build():
-    """Verify the built executable exists"""
-    print("\n🔍 Verifying build output...")
-
-    exe_path = DIST_DIR / 'StoreHeatmap.exe'
-    if exe_path.exists():
-        size_mb = exe_path.stat().st_size / (1024 * 1024)
-        print(f"✓ Executable created: {exe_path}")
-        print(f"✓ Size: {size_mb:.2f} MB")
-
-        # Size warnings
-        if size_mb > 100:
-            print("⚠️  Warning: Executable is large. Consider reviewing dependencies.")
-        elif size_mb < 50:
-            print("✅ Excellent: Executable is lightweight!")
-
-        return True
-    else:
-        print(f"❌ Executable not found at {exe_path}")
-        return False
-
-def print_instructions():
-    """Print usage instructions"""
-    print("\n📝 Build Complete!")
     print("\n" + "=" * 60)
-    print("The executable is ready to use:")
-    print(f"  Location: {DIST_DIR / 'StoreHeatmap.exe'}")
-    print("\nWhat's included:")
-    print("  ✓ Backend API server (FastAPI + Uvicorn)")
-    print("  ✓ Data processing (Pandas + NumPy + Numba)")
-    print("  ✓ Coordinate conversion (TWD97 TM2)")
-    print("  ✓ Data file (data.csv)")
-    print("\nWhat's excluded (to minimize size):")
-    print("  ✗ Frontend files (serve separately or use CDN)")
-    print("  ✗ Documentation and README files")
-    print("  ✗ Test files and notebooks")
-    print("  ✗ Development dependencies")
-    print("\nTo run the application:")
-    print("  1. Double-click StoreHeatmap.exe")
-    print("  2. API server starts on http://localhost:8001")
-    print("  3. Use frontend separately or via browser")
-    print("\nTo distribute:")
-    print("  - Copy StoreHeatmap.exe to target machine")
-    print("  - Ensure data.csv is in the same directory")
-    print("  - No installation or dependencies required")
+    print("🎉 打包完成!")
+    print("=" * 60)
+
+    if exe_file.exists():
+        size_mb = exe_file.stat().st_size / (1024 * 1024)
+        print(f"\n📦 輸出檔案: {exe_file}")
+        print(f"📊 檔案大小: {size_mb:.1f} MB")
+
+    print("\n✅ 包含內容:")
+    print("  ✓ Python 執行環境")
+    print("  ✓ 後端 API (FastAPI + Uvicorn)")
+    print("  ✓ 前端 UI (Vue 3 + OpenLayers)")
+    print("  ✓ 資料檔案 (data.csv)")
+    print("  ✓ 所有依賴套件")
+
+    print("\n🚀 使用方式:")
+    print("  1. 將 StoreHeatmap.exe 複製到任何 Windows 電腦")
+    print("  2. 雙擊執行")
+    print("  3. 瀏覽器會自動開啟 http://localhost:8000")
+    print("  4. 完全不需要安裝 Python 或任何依賴!")
+
+    print("\n💡 優點:")
+    print("  ✓ 單一檔案，易於分發")
+    print("  ✓ 客戶無需安裝任何東西")
+    print("  ✓ 雙擊即用")
+    print("  ✓ 離線可用")
+
+    print("\n⚠️ 注意:")
+    print("  - 必須在 Windows 電腦上執行此腳本")
+    print("  - Linux/Mac 無法編譯 Windows exe")
+    print("  - 首次啟動可能需要幾秒鐘")
+
     print("=" * 60)
 
 def main():
-    """Main build process"""
+    """主程序"""
     print("=" * 60)
-    print("Store Heatmap - Lightweight Windows Executable Builder")
+    print("Store Heatmap - 完整打包工具")
+    print("前端 + 後端 + Python = 單一 exe")
     print("=" * 60)
 
-    # Step 1: Check prerequisites
+    # 檢查是否在 Windows
+    if os.name != 'nt':
+        print("\n⚠️  警告: 當前系統不是 Windows")
+        print("PyInstaller 無法跨平台編譯")
+        print("請在 Windows 電腦上執行此腳本")
+        print("\n建議:")
+        print("1. 將整個專案複製到 Windows 電腦")
+        print("2. 安裝依賴: pip install -r requirements.txt")
+        print("3. 安裝 PyInstaller: pip install pyinstaller")
+        print("4. 執行: python build_exe.py")
+        sys.exit(1)
+
+    # 檢查前置條件
     if not check_prerequisites():
-        print("\n❌ Prerequisites check failed. Please fix the issues above.")
-        return 1
+        print("\n❌ 前置條件檢查失敗")
+        sys.exit(1)
 
-    # Step 2: Clean old builds
+    # 清理舊檔案
     clean_build_dirs()
 
-    # Step 3: Build executable
-    if not build_executable():
-        print("\n❌ Build process failed.")
-        return 1
+    # 執行打包
+    if not build_exe():
+        print("\n❌ 打包失敗")
+        sys.exit(1)
 
-    # Step 4: Optimize build
-    optimize_build()
-
-    # Step 5: Verify build
-    if not verify_build():
-        print("\n❌ Build verification failed.")
-        return 1
-
-    # Step 6: Print instructions
-    print_instructions()
-
-    return 0
+    # 顯示摘要
+    show_summary()
 
 if __name__ == '__main__':
-    sys.exit(main())
+    main()

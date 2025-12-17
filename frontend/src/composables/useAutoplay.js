@@ -1,6 +1,6 @@
 /**
  * useAutoplay Composable
- * Manages automatic hour cycling with 3-second intervals
+ * Manages automatic hour cycling with 1-second intervals
  */
 
 import { ref, computed, watch, onUnmounted } from 'vue'
@@ -10,7 +10,7 @@ export function useAutoplay(initialHour = 0) {
   const currentHour = ref(initialHour)
   const isPlaying = ref(false)
   const intervalId = ref(null)
-  const intervalDuration = 3000 // 3 seconds per FR-005
+  const intervalDuration = 1000 // 1 second interval
 
   // Computed
   const canPlay = computed(() => !isPlaying.value)

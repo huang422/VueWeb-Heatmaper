@@ -73,10 +73,19 @@ app.include_router(data.router, prefix="/api", tags=["data"])
 app.include_router(demographics.router, prefix="/api", tags=["demographics"])
 
 
-# Serve frontend static files (for packaged executable)
-# In development, Vite dev server handles frontend
+# Serve frontend static files
 try:
-    frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
+    import sys
+
+    # 判斷是否為 PyInstaller 打包的執行檔
+    if getattr(sys, 'frozen', False):
+        # PyInstaller 打包模式
+        base_path = Path(sys._MEIPASS)
+        frontend_dist = base_path / "frontend" / "dist"
+    else:
+        # 開發模式
+        frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
+
     if frontend_dist.exists():
         app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
 
@@ -84,6 +93,10 @@ try:
         async def serve_frontend():
             """Serve frontend index.html"""
             return FileResponse(str(frontend_dist / "index.html"))
+
+        logger.info(f"Frontend static files served from: {frontend_dist}")
+    else:
+        logger.warning(f"Frontend dist directory not found at: {frontend_dist}")
 except Exception as e:
     logger.warning(f"Frontend static files not available: {e}")
 
@@ -135,7 +148,7 @@ if __name__ == "__main__":
     import sys
     import threading
 
-    # Determine if running as packaged executable
+    # 判斷是否為打包模式
     is_packaged = getattr(sys, 'frozen', False)
 
     # Find available port
@@ -147,24 +160,24 @@ if __name__ == "__main__":
     host = API_CONFIG['host']
     url = f"http://{host}:{port}"
 
-    # Auto-launch browser for packaged executable
+    # 自動開啟瀏覽器（打包模式）
     if is_packaged:
         logger.info("Running as packaged executable")
         logger.info(f"Server will start at {url}")
 
-        # Start browser in background thread
+        # 在背景執行緒中開啟瀏覽器
         browser_thread = threading.Thread(target=open_browser, args=(url,), daemon=True)
         browser_thread.start()
 
-        # Run server without reload in packaged mode
+        # 打包模式：直接使用 app 實例
         uvicorn.run(
-            app,  # Use app instance directly (not string) when packaged
+            app,
             host=host,
             port=port,
             log_level=API_CONFIG['log_level']
         )
     else:
-        # Development mode
+        # 開發模式
         logger.info(f"Running in development mode at {url}")
         uvicorn.run(
             "src.main:app",
